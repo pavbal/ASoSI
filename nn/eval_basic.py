@@ -1,58 +1,34 @@
 import torch
 from matplotlib.colors import LinearSegmentedColormap
+from torch import nn
 from torchvision.io.image import read_image
-from torchvision.models.segmentation import deeplabv3_resnet50
+from torchvision.models.segmentation import deeplabv3_resnet50, DeepLabV3_ResNet50_Weights
 from torchvision.transforms.functional import to_pil_image
 from torchvision import transforms
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
 
-image_num = "2522_0"
-image_num = "2691_0"
-image_num = "2696_2"  # good
-image_num = "2737_0"
-image_num = "2869_0"
-image_num = "3493_2"
-image_num = "3520_3"  # good
-image_num = "3619_0"  # ne všechny původní masky jsou dokonalé
-image_num = "3650_0"  #  good
-image_num = "3709_3"  #  good
-image_num = "3707_1"
-image_num = "3850_3"
-image_num = "3910_3"  # good
-image_num = "3987_0"  # good
-image_num = "4017_2"  # good
-image_num = "4185_3"  # good, sus
-image_num = "4068_3"
-image_num = "2719_0"
-image_num = "3910_3"
-
-image_num = "4068_3"
+pretrained = False
+weights = DeepLabV3_ResNet50_Weights.DEFAULT
+num_classes = 8
+image_num = 16 #  16-79, neodpovídá číslům snímků
 
 # načtení modelu
-saved_model_path = "./models_all/models6/model_15_maxi_512_30_SGD_eval_bestMiou_13.pth"
-saved_model_path = "./models2/model_11_maxi_512_60_adam_eval_bestMiou_19.pth"
-saved_model_path_1 = "./models/model_6_mini_512_10_adam.pth"
-saved_model_path_2 = "./models/model_7_maxi_512_10_adam.pth"
-saved_model_path_3 = "./models/model_8_maxi_512_30_adam.pth"
-# saved_model_path = "./models/model_8_maxi_512_30_adam.pth"
-model = deeplabv3_resnet50(num_classes=8)
-model.load_state_dict(torch.load(saved_model_path))
+
+saved_model_path = "./models/model_6.pth"
+
+if pretrained:
+    model3 = deeplabv3_resnet50(weights=weights)
+    model3.classifier[-1] = nn.Conv2d(256, num_classes, kernel_size=(1, 1))
+    nn.init.xavier_uniform_(model3.classifier[-1].weight)
+    model3.load_state_dict(torch.load(saved_model_path))
+    model3.eval()
+else:
+    model = deeplabv3_resnet50(num_classes=8)
+    model.load_state_dict(torch.load(saved_model_path))
+
 model.eval()
-
-
-model1 = deeplabv3_resnet50(num_classes=8)
-model1.load_state_dict(torch.load(saved_model_path_1))
-model1.eval()
-
-model2 = deeplabv3_resnet50(num_classes=8)
-model2.load_state_dict(torch.load(saved_model_path_2))
-model2.eval()
-
-model3 = deeplabv3_resnet50(num_classes=8)
-model3.load_state_dict(torch.load(saved_model_path_3))
-model3.eval()
 
 # transformace
 data_transforms = transforms.Compose([
@@ -64,8 +40,8 @@ data_transforms = transforms.Compose([
 
 # Paths, stačí měnit číslo obrázku do 63
 # každá cesta obsahuje 16x4 obrázky
-img_path = "C:/Users/pavba/PycharmProjects/projekt-5/LoveDA/Val/Rural_and_Urban/images_png_512/"+image_num+".png"
-mask_path = "C:/Users/pavba/PycharmProjects/projekt-5/LoveDA/Val/Rural_and_Urban/masks_png_512/"+image_num+".png"
+img_path = "../claassical/LoveDA_Test_16/Rural/images_png_512/"+image_num+".png"
+mask_path = "../classical/LoveDA_Test_16/Rural/masks_png_512/"+image_num+".png"
 # img_path = "C:/Users/pavba/PycharmProjects/projekt-5/LoveDA_Train_64/Rural/images_png_512/129.png"
 # mask_path = "C:/Users/pavba/PycharmProjects/projekt-5/LoveDA_Train_64/Rural/masks_png_512/129.png"
 
@@ -94,49 +70,18 @@ Img_PIL = Image.open("C:/Users/pavba/PycharmProjects/projekt-5/LoveDA/Val/Rural_
 # with torch.no_grad():
 prediction = model(torch.unsqueeze(img, 0))['out']
 print(np.shape(prediction))
-mask = torch.argmax(prediction.squeeze(), dim=0)
-print(np.shape(mask))
-mask_np = np.shape(mask.numpy())
-print(mask)
-print(mask_np)
-# to_pil_image(mask).show()¨¨
-
-
-prediction = model1(torch.unsqueeze(img, 0))['out']
-pred1 = torch.argmax(prediction.squeeze(), dim=0)
-
-prediction = model2(torch.unsqueeze(img, 0))['out']
-pred2 = torch.argmax(prediction.squeeze(), dim=0)
-
-prediction = model3(torch.unsqueeze(img, 0))['out']
-pred3 = torch.argmax(prediction.squeeze(), dim=0)
+pred = torch.argmax(prediction.squeeze(), dim=0)
+mask_np = np.shape(pred.numpy())
 
 
 mask_nd = np.asarray(Image.open(mask_path))
-
-# print("6: ",np.sum(mask_nd==6))
-# print("5: ",np.sum(mask_nd==5))
-# print("4: ",np.sum(mask_nd==4))
-# print("3: ",np.sum(mask_nd==3))
-# print("2: ",np.sum(mask_nd==2))
-# print("1: ",np.sum(mask_nd==1))
-# print("0: ",np.sum(mask_nd==0))
-
 
 
 
 from methods import plot_two_with_map, plot_six_nn
 
-# plot_two_with_map(mask_nd, pred1, im_i=Img_PIL, title="Predikce modelu 1 na snímku "+image_num,
-#                   save_name="./figures/Model_1_ignore")
-# # plt.show()
+plot_two_with_map(mask_nd, pred, im_i=Img_PIL, title="Predikce modelu "+saved_model_path)
 
-plot_six_nn(Img_PIL, mask_nd, pred1, pred2, pred3, mask, title="Predikce modelů 1, 2 a 3 na snímku "+image_num,
-            save_name="./figures/modely123-"+image_num,
-            models_num=["1", "2", "3"],
-            # image_num=image_num,
-            show=False
-            )
 
 
 # colors = ['#000000', '#666666', '#d22d04', '#840f8f', '#0575e6', "#994200", "#1a8f00", "#ffd724"]
